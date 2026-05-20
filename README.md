@@ -1,26 +1,58 @@
-# Resonance
+# 🎵 Resonance
 
-Resonance connects your Spotify listening history to places worth visiting. Enter a city and the app analyzes your top artists and genres to recommend spots that match your taste. Not tourist lists, but places that fit your musical identity.
+> Discover places that resonate with your music taste, powered by Spotify + Claude AI.
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://gaspbrue-resonance-app.streamlit.app)
 
 ---
 
-## How it works
+## What it does
 
-The app fetches your real Spotify data (top artists, genres, recent tracks) and sends that profile to Claude. The prompt asks Claude to reason about your cultural identity before recommending anything, and each recommendation includes an explicit link between your music and the place. Tourist clichés are explicitly excluded unless they genuinely fit the profile.
+Connect your Spotify account and choose a city. Resonance analyzes your top artists and genres, then uses Claude AI to recommend 5 places that match your musical identity. Not generic tourist spots, but places that actually fit your vibe.
+
+**Example:** If you listen to Beach House, Videoclub and Jul, you'll get a mix of intimate indie venues, eclectic cultural bars and laid-back local spots, not the Eiffel Tower.
 
 ---
 
 ## Stack
 
-Spotify API for music data (OAuth Authorization Code flow), Anthropic Claude for the recommendations, Streamlit for the interface, deployed on Streamlit Cloud.
+| Layer | Tech |
+|---|---|
+| Music data | Spotify API (OAuth) |
+| AI recommendations | Anthropic Claude API |
+| Interface | Streamlit |
+| Deployment | Streamlit Cloud |
 
 ---
 
 ## Run locally
 
-Clone the repo, create a virtual environment, install dependencies with `pip install -r requirements.txt`, and add a `.streamlit/secrets.toml` file with your Spotify credentials, Anthropic API key, and redirect URI. Then run `streamlit run app.py`.
+```bash
+git clone https://github.com/gaspbrue/resonance
+cd resonance
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Create a `.streamlit/secrets.toml` file with:
+```toml
+SPOTIFY_CLIENT_ID = "..."
+SPOTIFY_CLIENT_SECRET = "..."
+ANTHROPIC_API_KEY = "..."
+REDIRECT_URI = "http://127.0.0.1:8501"
+```
+
+---
+
+## Key technical decisions
+
+**Spotify OAuth** uses the Authorization Code flow to access the user's real listening history (top artists, genres, recent tracks) without storing any credentials.
+
+**Prompt engineering** sends the raw Spotify profile to Claude and instructs it to reason about the cultural identity behind the music before recommending places. The link between the music and each place is always made explicit.
+
+**No generic recommendations** the prompt explicitly forbids tourist clichés unless they genuinely fit the profile.
 
 ---
 

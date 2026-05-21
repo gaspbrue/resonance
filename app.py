@@ -1,23 +1,9 @@
 import streamlit as st
-import anthropic
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-import json
 import requests
+from music import get_spotify_client, get_user_music_profile, build_manual_profile
+from places import is_grande_ville, get_search_queries, search_real_places, select_and_explain
 
-SPOTIFY_SCOPE = "user-top-read user-library-read"
-
-GRANDES_VILLES = {
-    "paris", "london", "londres", "berlin", "new york", "new york city", "nyc",
-    "barcelona", "barcelone", "madrid", "rome", "roma", "amsterdam", "vienna",
-    "vienne", "prague", "budapest", "lisbon", "lisbonne", "tokyo", "osaka",
-    "seoul", "séoul", "beijing", "shanghai", "sydney", "melbourne", "toronto",
-    "montreal", "montréal", "chicago", "los angeles", "la", "miami", "milan",
-    "florence", "firenze", "venice", "venise", "dublin", "brussels",
-    "bruxelles", "zurich", "zürich", "copenhagen", "copenhague", "stockholm",
-    "oslo", "helsinki", "warsaw", "varsovie", "bucharest", "bucarest",
-    "lyon", "marseille", "bordeaux", "lille", "toulouse", "nantes", "strasbourg"
-}
+CHIP_COLORS = ["lime", "yellow", "pink", "blue", "", "lime", "yellow", "pink"]
 
 CSS = """
 <style>
@@ -77,9 +63,7 @@ section[data-testid="stSidebar"] { display: none; }
     max-width: 480px;
 }
 
-.r-form-section {
-    padding: 32px 32px 0;
-}
+.r-form-section { padding: 32px 32px 0; }
 
 .r-section-title {
     font-family: 'Syne', sans-serif;
@@ -144,8 +128,7 @@ section[data-testid="stSidebar"] { display: none; }
 .r-city-header {
     font-family: 'Syne', sans-serif;
     font-size: 36px; font-weight: 800;
-    letter-spacing: -1px; color: #000;
-    margin-bottom: 8px;
+    letter-spacing: -1px; color: #000; margin-bottom: 8px;
 }
 .r-city-sub { font-size: 13px; color: #888; margin-bottom: 24px; }
 
@@ -170,7 +153,12 @@ section[data-testid="stSidebar"] { display: none; }
     font-size: 20px; font-weight: 800;
     color: #000; margin-bottom: 4px; line-height: 1.1;
 }
-.r-card-addr { font-size: 12px; color: #999; margin-bottom: 10px; }
+.r-card-addr { margin-bottom: 10px; }
+.r-card-addr a {
+    color: #999; text-decoration: none; font-size: 12px;
+    transition: color 0.1s;
+}
+.r-card-addr a:hover { color: #7B5CF0; }
 .r-card-ambiance {
     font-size: 13px; color: #333; font-style: italic;
     margin-bottom: 8px; line-height: 1.5;
@@ -217,7 +205,6 @@ div[data-testid="stTextInput"] input:focus {
     box-shadow: 2px 2px 0 #000 !important;
     transform: translate(2px, 2px) !important;
 }
-div[data-testid="stForm"] { border: none !important; padding: 0 !important; }
 
 button[kind="primary"], button[data-testid="baseButton-primary"] {
     background: #B8FF57 !important; color: #000 !important;
@@ -235,206 +222,19 @@ button[kind="primary"]:hover, button[data-testid="baseButton-primary"]:hover {
 }
 
 .stSpinner > div { border-top-color: #7B5CF0 !important; }
-div[data-testid="stExpander"] {
-    border: 3px solid #000 !important; border-radius: 12px !important;
-    box-shadow: 4px 4px 0 #000 !important; background: #fff !important;
-    margin-bottom: 12px !important;
-}
-
 .stAlert { border: 3px solid #000 !important; border-radius: 10px !important; }
 </style>
 """
 
-CHIP_COLORS = ["lime", "yellow", "pink", "blue", "", "lime", "yellow", "pink"]
-
-def is_grande_ville(city):
-    return city.lower().strip() in GRANDES_VILLES
-
-def get_spotify_client():
-    return spotipy.Spotify(auth_manager=SpotifyOAuth(
-        client_id=st.secrets["SPOTIFY_CLIENT_ID"],
-        client_secret=st.secrets["SPOTIFY_CLIENT_SECRET"],
-        redirect_uri=st.secrets["REDIRECT_URI"],
-        scope=SPOTIFY_SCOPE
-    ))
-
-def get_user_music_profile(sp):
-    top_tracks = sp.current_user_top_tracks(limit=10, time_range="medium_term")
-    top_artists = sp.current_user_top_artists(limit=5, time_range="medium_term")
-    tracks = [f"{t['name']} - {t['artists'][0]['name']}" for t in top_tracks['items']]
-    artists = [a['name'] for a in top_artists['items']]
-    genres = []
-    for artist in top_artists['items']:
-        if artist.get('genres'):
-            genres.extend(artist['genres'][:2])
-    genres = list(set(genres))[:8] if genres else ["variété", "pop"]
-    return {"tracks": tracks, "artists": artists, "genres": genres}
-
-def build_manual_profile(artists_input):
-    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-    prompt = f"""Tu es un expert en musique.
-L'utilisateur a listé ces artistes qu'il aime : {artists_input}
-Génère un profil musical structuré. Réponds UNIQUEMENT en JSON valide :
-{{
-  "artists": ["artiste 1", "artiste 2"],
-  "genres": ["genre 1", "genre 2"],
-  "tracks": ["titre - artiste"]
-}}
-Pour les genres, déduis-les des artistes. Pour les tracks, cite 5 titres emblématiques."""
-    message = client.messages.create(
-        model="claude-opus-4-5", max_tokens=500,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    response_text = message.content[0].text
-    if "```json" in response_text:
-        response_text = response_text.split("```json")[1].split("```")[0]
-    elif "```" in response_text:
-        response_text = response_text.split("```")[1].split("```")[0]
-    return json.loads(response_text.strip())
-
-def get_search_queries(profile, city, grande_ville):
-    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-    if grande_ville:
-        niche_instruction = f"""
-NIVEAU DE NOTORIÉTÉ VISÉ pour {city} :
-- Pas le top 20 TripAdvisor ni les monuments que tout touriste connaît
-- Vise les lieux que les habitants connaissent et fréquentent — connus des locaux, ignorés des touristes
-- Des adresses qu'un habitant dirait à un ami : "vas-y, c'est bien, c'est pas touristique"
-- Inclus le nom d'un quartier précis dans chaque requête"""
-    else:
-        niche_instruction = """
-- Varie les types : parcs, cinémas, librairies, marchés, cafés, bars, musées, espaces insolites
-- Cherche des adresses authentiques qui correspondent à la sensibilité de l'utilisateur"""
-
-    prompt = f"""Tu es un critique culturel et un fin connaisseur des villes.
-Voici le profil musical d'un utilisateur :
-- Artistes favoris : {', '.join(profile['artists'])}
-- Genres : {', '.join(profile['genres'])}
-- Titres récents : {', '.join(profile['tracks'][:5])}
-
-ÉTAPE 1 — Analyse esthétique profonde.
-Ne pense pas à la musique comme genre. Pense à ce qu'elle dit de la sensibilité de cette personne.
-Extrait 3 à 5 valeurs esthétiques précises.
-
-ÉTAPE 2 — Génère 8 requêtes de recherche Google Places pour {city}.
-{niche_instruction}
-Sois radical dans la diversité : parcs, cimetières, cinémas, librairies, marchés, musées, cafés, espaces insolites, jardins, passages, quais, brocantes, bars.
-
-Réponds UNIQUEMENT en JSON valide :
-{{
-  "valeurs_esthetiques": ["valeur 1", "valeur 2", "valeur 3"],
-  "analyse": "2-3 phrases sur la sensibilité de cette personne",
-  "requetes": [
-    {{
-      "query": "requête Google Places précise",
-      "type_lieu": "parc/cinéma/librairie/bar/café/musée/etc",
-      "vibe": "quelle valeur esthétique ce lieu incarne"
-    }}
-  ]
-}}"""
-    message = client.messages.create(
-        model="claude-opus-4-5", max_tokens=1200,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    response_text = message.content[0].text
-    if "```json" in response_text:
-        response_text = response_text.split("```json")[1].split("```")[0]
-    elif "```" in response_text:
-        response_text = response_text.split("```")[1].split("```")[0]
-    return json.loads(response_text.strip())
-
-def search_real_places(queries, city):
-    api_key = st.secrets["GOOGLE_PLACES_API_KEY"]
-    all_places = []
-    seen_ids = set()
-    for item in queries['requetes']:
-        try:
-            url = "https://places.googleapis.com/v1/places:searchText"
-            headers = {
-                "Content-Type": "application/json",
-                "X-Goog-Api-Key": api_key,
-                "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types"
-            }
-            body = {"textQuery": f"{item['query']} {city}", "languageCode": "fr"}
-            response = requests.post(url, headers=headers, json=body)
-            results = response.json()
-            for place in results.get('places', [])[:2]:
-                place_id = place['id']
-                if place_id not in seen_ids:
-                    seen_ids.add(place_id)
-                    all_places.append({
-                        "nom": place.get('displayName', {}).get('text', ''),
-                        "adresse": place.get('formattedAddress', ''),
-                        "note": place.get('rating', 'N/A'),
-                        "nb_avis": place.get('userRatingCount', 0),
-                        "types": place.get('types', []),
-                        "vibe_recherche": item['vibe'],
-                        "type_lieu": item['type_lieu']
-                    })
-        except Exception:
-            continue
-    return all_places
-
-def select_and_explain(profile, city, places, analyse, valeurs, grande_ville):
-    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-    places_text = json.dumps(places, ensure_ascii=False, indent=2)
-    if grande_ville:
-        niche_filter = f"""
-NIVEAU DE NOTORIÉTÉ :
-- Écarte les lieux du top 20 touristique de {city}
-- Garde des lieux que les habitants connaissent et apprécient
-- Test : un habitant dirait "ah oui je connais, c'est bien"
-- Si choix entre deux lieux similaires, préfère le moins touristique"""
-    else:
-        niche_filter = ""
-    prompt = f"""Tu es un critique culturel qui écrit sur les villes.
-Sensibilité de l'utilisateur :
-- Artistes : {', '.join(profile['artists'])}
-- Valeurs esthétiques : {', '.join(valeurs)}
-- Analyse : {analyse}
-
-Voici une liste de vrais lieux trouvés à {city} :
-{places_text}
-
-{niche_filter}
-
-Sélectionne exactement 5 lieux. Varie les types — un lieu de jour, un lieu de nuit, un silencieux, un vivant.
-Parle comme un critique culturel, pas un guide touristique.
-Le lien avec la musique doit être indirect et poétique.
-
-Réponds UNIQUEMENT en JSON valide :
-{{
-  "lieux": [
-    {{
-      "nom": "nom exact",
-      "adresse": "adresse exacte",
-      "note": "note",
-      "type_lieu": "type",
-      "moment": "matin/après-midi/soir/nuit",
-      "ambiance": "une phrase sèche et précise",
-      "pourquoi": "lien poétique et indirect, 2-3 phrases"
-    }}
-  ]
-}}"""
-    message = client.messages.create(
-        model="claude-opus-4-5", max_tokens=1500,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    response_text = message.content[0].text
-    if "```json" in response_text:
-        response_text = response_text.split("```json")[1].split("```")[0]
-    elif "```" in response_text:
-        response_text = response_text.split("```")[1].split("```")[0]
-    return json.loads(response_text.strip())
 
 def render_profile_card(profile, source="spotify"):
     initial = profile['artists'][0][0].upper() if profile['artists'] else "?"
     artists_str = " · ".join(profile['artists'][:3])
     source_label = "via Spotify" if source == "spotify" else "saisie manuelle"
-    chips_html = ""
-    for i, genre in enumerate(profile['genres'][:5]):
-        color = CHIP_COLORS[i % len(CHIP_COLORS)]
-        chips_html += f'<div class="r-chip {color}">{genre}</div>'
+    chips_html = "".join(
+        f'<div class="r-chip {CHIP_COLORS[i % len(CHIP_COLORS)]}">{genre}</div>'
+        for i, genre in enumerate(profile['genres'][:5])
+    )
     st.markdown(f"""
     <div class="r-profile-card">
         <div class="r-profile-header">
@@ -445,15 +245,19 @@ def render_profile_card(profile, source="spotify"):
             </div>
         </div>
         <div class="r-genre-chips">{chips_html}</div>
-        <div class="r-artists"><strong>{" · ".join(profile['artists'])}</strong><br>
-        {" · ".join(profile['tracks'][:3]) if profile['tracks'] else ""}</div>
+        <div class="r-artists">
+            <strong>{" · ".join(profile['artists'])}</strong><br>
+            {" · ".join(profile['tracks'][:3]) if profile['tracks'] else ""}
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
+
 def render_analyse(search_data):
-    valeurs_html = ""
-    for v in search_data['valeurs_esthetiques']:
-        valeurs_html += f'<div class="r-valeur">{v}</div>'
+    valeurs_html = "".join(
+        f'<div class="r-valeur">{v}</div>'
+        for v in search_data['valeurs_esthetiques']
+    )
     st.markdown(f"""
     <div class="r-analyse-card">
         <div class="r-analyse-text">{search_data['analyse']}</div>
@@ -461,18 +265,25 @@ def render_analyse(search_data):
     </div>
     """, unsafe_allow_html=True)
 
+
 def render_cards(result, city):
-    cards_html = ""
     accent_colors = ["#7B5CF0", "#B8FF57", "#FFD166", "#FFB3DE", "#B3E5FF"]
+    cards_html = ""
+
     for i, lieu in enumerate(result['lieux']):
         color = accent_colors[i % len(accent_colors)]
         note_html = f'<div class="r-note">⭐ {lieu["note"]}</div>' if lieu.get('note') and lieu['note'] != 'N/A' else ''
+        maps_query = requests.utils.quote(f"{lieu['nom']} {lieu['adresse']}")
+        maps_url = f"https://www.google.com/maps/search/?api=1&query={maps_query}"
+
         cards_html += f"""
         <div class="r-card" style="border-left: 6px solid {color};">
             <div>
                 <div class="r-card-num">0{i+1}</div>
                 <div class="r-card-name">{lieu['nom']}</div>
-                <div class="r-card-addr">📍 {lieu['adresse']}</div>
+                <div class="r-card-addr">
+                    <a href="{maps_url}" target="_blank">📍 {lieu['adresse']} ↗</a>
+                </div>
                 <div class="r-card-ambiance">{lieu['ambiance']}</div>
                 <div class="r-card-why">{lieu['pourquoi']}</div>
             </div>
@@ -482,6 +293,7 @@ def render_cards(result, city):
                 <div class="r-type-badge">{lieu['type_lieu']}</div>
             </div>
         </div>"""
+
     st.markdown(f"""
     <div class="r-results-section">
         <div class="r-section-title">Résultats</div>
@@ -491,7 +303,9 @@ def render_cards(result, city):
     </div>
     """, unsafe_allow_html=True)
 
-# APP
+
+# ── APP ──────────────────────────────────────────────────────────────────────
+
 st.set_page_config(page_title="Resonance", page_icon="🎵", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
 
@@ -509,17 +323,12 @@ st.markdown("""
 st.markdown('<div class="r-form-section">', unsafe_allow_html=True)
 st.markdown('<div class="r-section-title">Comment explorer</div>', unsafe_allow_html=True)
 
-mode = st.radio(
-    "", ["🎧 Depuis mon Spotify", "✍️ Je donne mes artistes"],
-    horizontal=True
-)
-
+mode = st.radio("", ["🎧 Depuis mon Spotify", "✍️ Je donne mes artistes"], horizontal=True)
 city = st.text_input("", placeholder="Paris, Lyon, Berlin, Tokyo...")
 
 if mode == "✍️ Je donne mes artistes":
     artists_input = st.text_input("", placeholder="Beach House, Kanye West, Jul, Videoclub...")
-    btn = st.button("Explorer →", type="primary")
-    if btn:
+    if st.button("Explorer →", type="primary"):
         if not city:
             st.warning("Entre une ville d'abord !")
         elif not artists_input:
@@ -528,15 +337,16 @@ if mode == "✍️ Je donne mes artistes":
             try:
                 with st.spinner("Construction du profil..."):
                     profile = build_manual_profile(artists_input)
-                    st.session_state['profile'] = profile
-                    st.session_state['grande_ville'] = is_grande_ville(city)
-                    st.session_state['city'] = city
-                    st.session_state['source'] = 'manual'
+                st.session_state.update({
+                    'profile': profile,
+                    'grande_ville': is_grande_ville(city),
+                    'city': city,
+                    'source': 'manual'
+                })
             except Exception as e:
                 st.error(f"Erreur : {e}")
 else:
-    btn = st.button("Connecter Spotify →", type="primary")
-    if btn:
+    if st.button("Connecter Spotify →", type="primary"):
         if not city:
             st.warning("Entre une ville d'abord !")
         else:
@@ -544,14 +354,18 @@ else:
                 with st.spinner("Connexion à Spotify..."):
                     sp = get_spotify_client()
                     profile = get_user_music_profile(sp)
-                    st.session_state['profile'] = profile
-                    st.session_state['grande_ville'] = is_grande_ville(city)
-                    st.session_state['city'] = city
-                    st.session_state['source'] = 'spotify'
+                st.session_state.update({
+                    'profile': profile,
+                    'grande_ville': is_grande_ville(city),
+                    'city': city,
+                    'source': 'spotify'
+                })
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
 st.markdown('</div>', unsafe_allow_html=True)
+
+# ── PIPELINE ─────────────────────────────────────────────────────────────────
 
 if 'profile' in st.session_state and 'city' in st.session_state:
     profile = st.session_state['profile']
@@ -560,6 +374,7 @@ if 'profile' in st.session_state and 'city' in st.session_state:
     source = st.session_state.get('source', 'spotify')
 
     st.markdown('<div style="padding: 24px 32px 0;">', unsafe_allow_html=True)
+
     st.markdown('<div class="r-section-title">Ton profil</div>', unsafe_allow_html=True)
     render_profile_card(profile, source)
 
@@ -590,8 +405,5 @@ if 'profile' in st.session_state and 'city' in st.session_state:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    del st.session_state['profile']
-    del st.session_state['grande_ville']
-    del st.session_state['city']
-    if 'source' in st.session_state:
-        del st.session_state['source']
+    for key in ['profile', 'grande_ville', 'city', 'source']:
+        st.session_state.pop(key, None)

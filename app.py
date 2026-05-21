@@ -158,6 +158,8 @@ def search_real_places(queries, city):
             response = requests.post(url, headers=headers, json=body)
             results = response.json()
             
+            st.write(f"Requête : {item['query']} → {results}")
+            
             for place in results.get('places', [])[:2]:
                 place_id = place['id']
                 if place_id not in seen_ids:
@@ -172,7 +174,7 @@ def search_real_places(queries, city):
                         "type_lieu": item['type_lieu']
                     })
         except Exception as e:
-            st.write(f"Erreur requête '{item['query']}': {e}")
+            st.write(f"Erreur : {e}")
             continue
     
     return all_places
@@ -185,9 +187,9 @@ def select_and_explain(profile, city, places, analyse, valeurs, grande_ville):
     if grande_ville:
         niche_filter = f"""
 NIVEAU DE NOTORIÉTÉ :
-- Écarte les lieux qui font partie du top 20 touristique de {city} — pas la tour Eiffel, pas le Louvre, pas les spots que tout touriste visite
-- Garde des lieux que les habitants connaissent et apprécient — pas besoin d'être ultra-confidentiel
-- Le bon test : un habitant de {city} dirait "ah oui je connais, c'est bien" — pas "je n'en ai jamais entendu parler"
+- Écarte les lieux qui font partie du top 20 touristique de {city}
+- Garde des lieux que les habitants connaissent et apprécient
+- Le bon test : un habitant de {city} dirait "ah oui je connais, c'est bien"
 - Si tu as le choix entre deux lieux similaires, préfère le moins touristique"""
     else:
         niche_filter = ""
@@ -252,8 +254,6 @@ mode = st.radio(
 )
 
 city = st.text_input("Dans quelle ville tu veux explorer ?", placeholder="Paris, Lyon, Berlin...")
-
-profile = None
 
 if mode == "✍️ Je donne mes artistes moi-même":
     artists_input = st.text_input(

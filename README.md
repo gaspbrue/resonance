@@ -2,7 +2,7 @@
 
 > Discover places that resonate with your music taste, powered by Spotify + Claude AI.
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://gaspbrue-resonance-app.streamlit.app)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://resonance-bugnvflidjkkn3ykwbevu6.streamlit.app/)
 
 ---
 

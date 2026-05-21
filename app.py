@@ -81,11 +81,10 @@ def get_search_queries(profile, city, grande_ville):
 
     if grande_ville:
         niche_instruction = f"""
-NIVEAU DE NOTORIÉTÉ VISÉ pour {city} — le sweet spot :
+NIVEAU DE NOTORIÉTÉ VISÉ pour {city} :
 - Pas le top 20 TripAdvisor ni les monuments que tout touriste connaît
-- Pas non plus les spots ultra-confidentiels que seul un critique de magazine connaît
 - Vise les lieux que les habitants de {city} connaissent et fréquentent — connus des locaux, ignorés des touristes
-- Des adresses qu'un Parisien dirait à un ami qui visite : "vas-y, c'est bien, c'est pas touristique"
+- Des adresses qu'un habitant dirait à un ami qui visite : "vas-y, c'est bien, c'est pas touristique"
 - Inclus le nom d'un quartier précis dans chaque requête pour éviter les résultats génériques"""
     else:
         niche_instruction = """
@@ -107,7 +106,7 @@ Extrait 3 à 5 valeurs esthétiques précises. Exemples : mélancolie douce, bea
 {niche_instruction}
 
 Sois radical dans la diversité des types :
-- Inclus : parcs, cimetières, cinémas de quartier, librairies, marchés, musées confidentiels, architectures particulières, cafés, espaces insolites, jardins, passages couverts, quais, brocantes, bars
+- Inclus : parcs, cimetières, cinémas de quartier, librairies, marchés, musées, architectures particulières, cafés, espaces insolites, jardins, passages couverts, quais, brocantes, bars
 - Chaque lieu doit pouvoir exister un mardi après-midi autant qu'un vendredi soir
 
 Réponds UNIQUEMENT en JSON valide :
@@ -186,10 +185,10 @@ def select_and_explain(profile, city, places, analyse, valeurs, grande_ville):
     if grande_ville:
         niche_filter = f"""
 NIVEAU DE NOTORIÉTÉ :
-- Écarte les lieux qui font partie du top 20 touristique de {city}
-- Mais garde des lieux que les habitants connaissent — pas besoin d'être ultra-confidentiel
+- Écarte les lieux qui font partie du top 20 touristique de {city} — pas la tour Eiffel, pas le Louvre, pas les spots que tout touriste visite
+- Garde des lieux que les habitants connaissent et apprécient — pas besoin d'être ultra-confidentiel
 - Le bon test : un habitant de {city} dirait "ah oui je connais, c'est bien" — pas "je n'en ai jamais entendu parler"
-- Privilégie les lieux entre 200 et 5000 avis Google — assez établis pour être fiables, pas assez massifs pour être sur TripAdvisor page 1"""
+- Si tu as le choix entre deux lieux similaires, préfère le moins touristique"""
     else:
         niche_filter = ""
 
@@ -205,7 +204,7 @@ Voici une liste de vrais lieux trouvés à {city} :
 
 {niche_filter}
 
-Sélectionne les 5 lieux qui incarnent le mieux la sensibilité de cette personne.
+Sélectionne 5 lieux parmi cette liste. Tu DOIS en sélectionner exactement 5, même si certains te semblent imparfaits — choisis les meilleurs disponibles.
 Varie absolument les types : ne sélectionne pas 3 bars. Mélange les registres — un lieu de jour, un lieu de nuit, un lieu silencieux, un lieu vivant.
 
 Parle du lieu comme un critique culturel, pas comme un guide touristique.

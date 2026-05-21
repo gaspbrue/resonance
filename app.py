@@ -8,14 +8,13 @@ import requests
 # Config
 SPOTIFY_SCOPE = "user-top-read user-library-read"
 
-# Grandes villes où on applique le filtre anti-touriste
 GRANDES_VILLES = {
     "paris", "london", "londres", "berlin", "new york", "new york city", "nyc",
     "barcelona", "barcelone", "madrid", "rome", "roma", "amsterdam", "vienna",
     "vienne", "prague", "budapest", "lisbon", "lisbonne", "tokyo", "osaka",
     "seoul", "séoul", "beijing", "shanghai", "sydney", "melbourne", "toronto",
     "montreal", "montréal", "chicago", "los angeles", "la", "miami", "milan",
-    "milan", "florence", "firenze", "venice", "venise", "dublin", "brussels",
+    "florence", "firenze", "venice", "venise", "dublin", "brussels",
     "bruxelles", "zurich", "zürich", "copenhagen", "copenhague", "stockholm",
     "oslo", "helsinki", "warsaw", "varsovie", "bucharest", "bucarest",
     "lyon", "marseille", "bordeaux", "lille", "toulouse", "nantes", "strasbourg"
@@ -82,12 +81,12 @@ def get_search_queries(profile, city, grande_ville):
 
     if grande_ville:
         niche_instruction = f"""
-RÈGLE ANTI-TOURISTE — OBLIGATOIRE pour {city} :
-- Zéro monuments célèbres, zéro musées dans le top 10 de la ville, zéro spots qui apparaissent dans les guides touristiques classiques
-- Les requêtes doivent cibler des quartiers précis et moins connus (pas les quartiers les plus touristiques)
-- Cherche des adresses de quartier : la boulangerie que les locaux connaissent, le cinéma de quartier, le marché du jeudi matin, la librairie spécialisée, le parc sans touristes
-- Si un lieu a une file d'attente de touristes, il est disqualifié
-- Inclus le nom d'un quartier spécifique et moins connu dans chaque requête"""
+NIVEAU DE NOTORIÉTÉ VISÉ pour {city} — le sweet spot :
+- Pas le top 20 TripAdvisor ni les monuments que tout touriste connaît
+- Pas non plus les spots ultra-confidentiels que seul un critique de magazine connaît
+- Vise les lieux que les habitants de {city} connaissent et fréquentent — connus des locaux, ignorés des touristes
+- Des adresses qu'un Parisien dirait à un ami qui visite : "vas-y, c'est bien, c'est pas touristique"
+- Inclus le nom d'un quartier précis dans chaque requête pour éviter les résultats génériques"""
     else:
         niche_instruction = """
 - Varie les types de lieux : parcs, cinémas, librairies, marchés, cafés, bars, musées, espaces insolites
@@ -106,6 +105,10 @@ Extrait 3 à 5 valeurs esthétiques précises. Exemples : mélancolie douce, bea
 
 ÉTAPE 2 — Génère 8 requêtes de recherche Google Places pour {city}.
 {niche_instruction}
+
+Sois radical dans la diversité des types :
+- Inclus : parcs, cimetières, cinémas de quartier, librairies, marchés, musées confidentiels, architectures particulières, cafés, espaces insolites, jardins, passages couverts, quais, brocantes, bars
+- Chaque lieu doit pouvoir exister un mardi après-midi autant qu'un vendredi soir
 
 Réponds UNIQUEMENT en JSON valide :
 {{
@@ -182,11 +185,11 @@ def select_and_explain(profile, city, places, analyse, valeurs, grande_ville):
 
     if grande_ville:
         niche_filter = f"""
-FILTRE ANTI-TOURISTE — OBLIGATOIRE :
-- Écarte tout lieu qui apparaît dans les guides touristiques classiques de {city}
-- Écarte tout lieu avec plus de 5000 avis sur Google (trop connu)
-- Privilégie les lieux avec 50 à 2000 avis — assez connus pour être fiables, assez confidentiels pour surprendre
-- La personne qui lit doit se dire "je n'aurais jamais trouvé ça tout seul" """
+NIVEAU DE NOTORIÉTÉ :
+- Écarte les lieux qui font partie du top 20 touristique de {city}
+- Mais garde des lieux que les habitants connaissent — pas besoin d'être ultra-confidentiel
+- Le bon test : un habitant de {city} dirait "ah oui je connais, c'est bien" — pas "je n'en ai jamais entendu parler"
+- Privilégie les lieux entre 200 et 5000 avis Google — assez établis pour être fiables, pas assez massifs pour être sur TripAdvisor page 1"""
     else:
         niche_filter = ""
 
@@ -271,6 +274,7 @@ if mode == "✍️ Je donne mes artistes moi-même":
                     grande_ville = is_grande_ville(city)
                     st.session_state['profile'] = profile
                     st.session_state['grande_ville'] = grande_ville
+                    st.session_state['city'] = city
 
                 with st.expander("Ton profil musical"):
                     st.write("**Artistes :**", ", ".join(profile['artists']))
@@ -291,6 +295,7 @@ else:
                     grande_ville = is_grande_ville(city)
                     st.session_state['profile'] = profile
                     st.session_state['grande_ville'] = grande_ville
+                    st.session_state['city'] = city
 
                 with st.expander("Ton profil musical"):
                     st.write("**Artistes :**", ", ".join(profile['artists']))
@@ -300,9 +305,10 @@ else:
                 st.error(f"Erreur : {e}")
 
 # Pipeline commun
-if 'profile' in st.session_state and city:
+if 'profile' in st.session_state and 'city' in st.session_state:
     profile = st.session_state['profile']
     grande_ville = st.session_state['grande_ville']
+    city = st.session_state['city']
     
     try:
         with st.spinner("Analyse de ta sensibilité..."):
@@ -345,6 +351,7 @@ if 'profile' in st.session_state and city:
 
         del st.session_state['profile']
         del st.session_state['grande_ville']
+        del st.session_state['city']
 
     except Exception as e:
         st.error(f"Erreur : {e}")

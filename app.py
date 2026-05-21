@@ -8,6 +8,22 @@ import requests
 # Config
 SPOTIFY_SCOPE = "user-top-read user-library-read"
 
+# Grandes villes où on applique le filtre anti-touriste
+GRANDES_VILLES = {
+    "paris", "london", "londres", "berlin", "new york", "new york city", "nyc",
+    "barcelona", "barcelone", "madrid", "rome", "roma", "amsterdam", "vienna",
+    "vienne", "prague", "budapest", "lisbon", "lisbonne", "tokyo", "osaka",
+    "seoul", "séoul", "beijing", "shanghai", "sydney", "melbourne", "toronto",
+    "montreal", "montréal", "chicago", "los angeles", "la", "miami", "milan",
+    "milan", "florence", "firenze", "venice", "venise", "dublin", "brussels",
+    "bruxelles", "zurich", "zürich", "copenhagen", "copenhague", "stockholm",
+    "oslo", "helsinki", "warsaw", "varsovie", "bucharest", "bucarest",
+    "lyon", "marseille", "bordeaux", "lille", "toulouse", "nantes", "strasbourg"
+}
+
+def is_grande_ville(city):
+    return city.lower().strip() in GRANDES_VILLES
+
 def get_spotify_client():
     return spotipy.Spotify(auth_manager=SpotifyOAuth(
         client_id=st.secrets["SPOTIFY_CLIENT_ID"],
@@ -31,7 +47,6 @@ def get_user_music_profile(sp):
     return {"tracks": tracks, "artists": artists, "genres": genres}
 
 def build_manual_profile(artists_input):
-    """Construit un profil à partir d'artistes saisis manuellement"""
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
     
     prompt = f"""Tu es un expert en musique.
@@ -41,9 +56,9 @@ L'utilisateur a listé ces artistes qu'il aime : {artists_input}
 Génère un profil musical structuré pour ces artistes.
 Réponds UNIQUEMENT en JSON valide :
 {{
-  "artists": ["artiste 1", "artiste 2", ...],
-  "genres": ["genre 1", "genre 2", ...],
-  "tracks": ["titre emblématique - artiste", ...]
+  "artists": ["artiste 1", "artiste 2"],
+  "genres": ["genre 1", "genre 2"],
+  "tracks": ["titre emblématique - artiste"]
 }}
 
 Pour les genres, déduis-les des artistes. Pour les tracks, cite 5 titres emblématiques de ces artistes."""
@@ -62,9 +77,22 @@ Pour les genres, déduis-les des artistes. Pour les tracks, cite 5 titres emblé
     
     return json.loads(response_text.strip())
 
-def get_search_queries(profile, city):
+def get_search_queries(profile, city, grande_ville):
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-    
+
+    if grande_ville:
+        niche_instruction = f"""
+RÈGLE ANTI-TOURISTE — OBLIGATOIRE pour {city} :
+- Zéro monuments célèbres, zéro musées dans le top 10 de la ville, zéro spots qui apparaissent dans les guides touristiques classiques
+- Les requêtes doivent cibler des quartiers précis et moins connus (pas les quartiers les plus touristiques)
+- Cherche des adresses de quartier : la boulangerie que les locaux connaissent, le cinéma de quartier, le marché du jeudi matin, la librairie spécialisée, le parc sans touristes
+- Si un lieu a une file d'attente de touristes, il est disqualifié
+- Inclus le nom d'un quartier spécifique et moins connu dans chaque requête"""
+    else:
+        niche_instruction = """
+- Varie les types de lieux : parcs, cinémas, librairies, marchés, cafés, bars, musées, espaces insolites
+- Cherche des adresses authentiques qui correspondent à la sensibilité de l'utilisateur"""
+
     prompt = f"""Tu es un critique culturel et un fin connaisseur des villes.
 
 Voici le profil musical d'un utilisateur :
@@ -74,13 +102,10 @@ Voici le profil musical d'un utilisateur :
 
 ÉTAPE 1 — Analyse esthétique profonde.
 Ne pense pas à la musique comme genre. Pense à ce qu'elle dit de la sensibilité de cette personne.
-Extrait 3 à 5 valeurs esthétiques précises. Exemples : mélancolie douce, beauté abîmée, décalage poétique, énergie brute et collective, douceur introspective, nostalgie urbaine, tension entre légèreté et profondeur, etc.
+Extrait 3 à 5 valeurs esthétiques précises. Exemples : mélancolie douce, beauté abîmée, décalage poétique, énergie brute et collective, douceur introspective, nostalgie urbaine, tension entre légèreté et profondeur.
 
 ÉTAPE 2 — Génère 8 requêtes de recherche Google Places pour {city}.
-Les lieux doivent incarner ces valeurs esthétiques. Sois radical dans la diversité des types :
-- Pas uniquement des bars et clubs
-- Inclus : parcs, cimetières, cinémas de quartier, librairies, marchés, musées confidentiels, architectures particulières, cafés littéraires, espaces insolites, jardins, passages couverts, quais, brocantes
-- Chaque lieu doit pouvoir exister un mardi après-midi autant qu'un vendredi soir
+{niche_instruction}
 
 Réponds UNIQUEMENT en JSON valide :
 {{
@@ -150,11 +175,21 @@ def search_real_places(queries, city):
     
     return all_places
 
-def select_and_explain(profile, city, places, analyse, valeurs):
+def select_and_explain(profile, city, places, analyse, valeurs, grande_ville):
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
     
     places_text = json.dumps(places, ensure_ascii=False, indent=2)
-    
+
+    if grande_ville:
+        niche_filter = f"""
+FILTRE ANTI-TOURISTE — OBLIGATOIRE :
+- Écarte tout lieu qui apparaît dans les guides touristiques classiques de {city}
+- Écarte tout lieu avec plus de 5000 avis sur Google (trop connu)
+- Privilégie les lieux avec 50 à 2000 avis — assez connus pour être fiables, assez confidentiels pour surprendre
+- La personne qui lit doit se dire "je n'aurais jamais trouvé ça tout seul" """
+    else:
+        niche_filter = ""
+
     prompt = f"""Tu es un critique culturel qui écrit sur les villes.
 
 Sensibilité de l'utilisateur :
@@ -165,11 +200,12 @@ Sensibilité de l'utilisateur :
 Voici une liste de vrais lieux trouvés à {city} :
 {places_text}
 
+{niche_filter}
+
 Sélectionne les 5 lieux qui incarnent le mieux la sensibilité de cette personne.
 Varie absolument les types : ne sélectionne pas 3 bars. Mélange les registres — un lieu de jour, un lieu de nuit, un lieu silencieux, un lieu vivant.
 
-Pour chaque lieu, explique le lien entre ce lieu et la sensibilité esthétique de l'utilisateur.
-Parle du lieu comme un critique culturel — pas comme un guide touristique.
+Parle du lieu comme un critique culturel, pas comme un guide touristique.
 Le lien avec la musique doit être indirect et poétique, pas littéral.
 
 Réponds UNIQUEMENT en JSON valide :
@@ -207,7 +243,6 @@ st.set_page_config(page_title="Resonance", page_icon="🎵", layout="centered")
 st.title("🎵 Resonance")
 st.subheader("Découvre des lieux qui résonnent avec ta sensibilité")
 
-# Choix du mode
 mode = st.radio(
     "Comment tu veux qu'on construise ton profil ?",
     ["🎧 Depuis mon Spotify", "✍️ Je donne mes artistes moi-même"],
@@ -233,7 +268,10 @@ if mode == "✍️ Je donne mes artistes moi-même":
             try:
                 with st.spinner("Construction du profil musical..."):
                     profile = build_manual_profile(artists_input)
-                
+                    grande_ville = is_grande_ville(city)
+                    st.session_state['profile'] = profile
+                    st.session_state['grande_ville'] = grande_ville
+
                 with st.expander("Ton profil musical"):
                     st.write("**Artistes :**", ", ".join(profile['artists']))
                     st.write("**Genres déduits :**", ", ".join(profile['genres']))
@@ -250,7 +288,10 @@ else:
                 with st.spinner("Connexion à Spotify..."):
                     sp = get_spotify_client()
                     profile = get_user_music_profile(sp)
-                
+                    grande_ville = is_grande_ville(city)
+                    st.session_state['profile'] = profile
+                    st.session_state['grande_ville'] = grande_ville
+
                 with st.expander("Ton profil musical"):
                     st.write("**Artistes :**", ", ".join(profile['artists']))
                     st.write("**Genres :**", ", ".join(profile['genres']))
@@ -258,11 +299,14 @@ else:
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
-# Pipeline commun aux deux modes
-if profile and city:
+# Pipeline commun
+if 'profile' in st.session_state and city:
+    profile = st.session_state['profile']
+    grande_ville = st.session_state['grande_ville']
+    
     try:
         with st.spinner("Analyse de ta sensibilité..."):
-            search_data = get_search_queries(profile, city)
+            search_data = get_search_queries(profile, city, grande_ville)
         
         with st.expander("Ta sensibilité esthétique"):
             st.write(search_data['analyse'])
@@ -278,7 +322,8 @@ if profile and city:
                 result = select_and_explain(
                     profile, city, real_places,
                     search_data['analyse'],
-                    search_data['valeurs_esthetiques']
+                    search_data['valeurs_esthetiques'],
+                    grande_ville
                 )
             
             st.markdown(f"## 📍 {city}")
@@ -297,6 +342,9 @@ if profile and city:
                     st.markdown(f"*{lieu['ambiance']}*")
                     st.markdown(f"{lieu['pourquoi']}")
                     st.divider()
+
+        del st.session_state['profile']
+        del st.session_state['grande_ville']
 
     except Exception as e:
         st.error(f"Erreur : {e}")

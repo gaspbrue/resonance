@@ -5,7 +5,6 @@ from spotipy.oauth2 import SpotifyOAuth
 import json
 import requests
 
-# Config
 SPOTIFY_SCOPE = "user-top-read user-library-read"
 
 GRANDES_VILLES = {
@@ -19,6 +18,234 @@ GRANDES_VILLES = {
     "oslo", "helsinki", "warsaw", "varsovie", "bucharest", "bucarest",
     "lyon", "marseille", "bordeaux", "lille", "toulouse", "nantes", "strasbourg"
 }
+
+CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700;900&family=Syne:wght@700;800&display=swap');
+
+* { box-sizing: border-box; }
+
+.stApp {
+    background: #F5F0FF !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+}
+
+section[data-testid="stSidebar"] { display: none; }
+
+.block-container {
+    padding: 0 !important;
+    max-width: 100% !important;
+}
+
+.r-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 32px;
+    background: #fff;
+    border-bottom: 3px solid #000;
+    position: sticky; top: 0; z-index: 100;
+}
+.r-logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 24px; font-weight: 800;
+    letter-spacing: -1px; color: #000;
+}
+.r-logo span { color: #B8FF57; background: #000; padding: 0 5px; }
+
+.r-hero {
+    padding: 48px 32px 40px;
+    background: #F5F0FF;
+    border-bottom: 3px solid #000;
+}
+.r-tag {
+    display: inline-block;
+    background: #B8FF57; border: 2px solid #000;
+    border-radius: 999px; padding: 4px 14px;
+    font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 16px;
+}
+.r-headline {
+    font-family: 'Syne', sans-serif;
+    font-size: 52px; font-weight: 800;
+    line-height: 1.05; letter-spacing: -2px;
+    margin-bottom: 12px; color: #000;
+}
+.r-headline em { font-style: normal; color: #7B5CF0; }
+.r-sub {
+    font-size: 15px; color: #555;
+    line-height: 1.6; margin-bottom: 0;
+    max-width: 480px;
+}
+
+.r-form-section {
+    padding: 32px 32px 0;
+}
+
+.r-section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 3px;
+    color: #888; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+}
+.r-section-title::after {
+    content: ''; flex: 1; height: 2px; background: #000;
+}
+
+.r-profile-card {
+    background: #fff; border: 3px solid #000;
+    border-radius: 16px; box-shadow: 6px 6px 0 #000;
+    padding: 20px; margin-bottom: 24px;
+}
+.r-profile-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+}
+.r-avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 3px solid #000; background: #7B5CF0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-size: 18px;
+    font-weight: 800; color: #fff;
+}
+.r-profile-name { font-weight: 700; font-size: 15px; color: #000; }
+.r-profile-sub { font-size: 12px; color: #888; }
+.r-genre-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.r-chip {
+    padding: 4px 10px; border: 2px solid #000;
+    border-radius: 999px; font-size: 11px; font-weight: 600;
+    background: #F5F0FF; color: #000;
+}
+.r-chip.lime { background: #B8FF57; }
+.r-chip.pink { background: #FFB3DE; }
+.r-chip.yellow { background: #FFD166; }
+.r-chip.blue { background: #B3E5FF; }
+.r-artists { font-size: 12px; color: #666; line-height: 1.6; }
+.r-artists strong { color: #000; font-weight: 700; }
+
+.r-analyse-card {
+    background: #fff; border: 3px solid #000;
+    border-radius: 16px; box-shadow: 4px 4px 0 #000;
+    padding: 20px; margin-bottom: 24px;
+}
+.r-analyse-text { font-size: 14px; color: #333; line-height: 1.7; margin-bottom: 14px; }
+.r-valeurs { display: flex; flex-wrap: wrap; gap: 8px; }
+.r-valeur {
+    padding: 6px 14px; border: 3px solid #000;
+    border-radius: 10px; font-size: 12px; font-weight: 700;
+    box-shadow: 3px 3px 0 #000;
+}
+.r-valeur:nth-child(1) { background: #B8FF57; }
+.r-valeur:nth-child(2) { background: #FFD166; }
+.r-valeur:nth-child(3) { background: #FFB3DE; }
+.r-valeur:nth-child(4) { background: #B3E5FF; }
+.r-valeur:nth-child(5) { background: #E0B3FF; }
+
+.r-results-section { padding: 32px 32px 48px; }
+.r-city-header {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px; font-weight: 800;
+    letter-spacing: -1px; color: #000;
+    margin-bottom: 8px;
+}
+.r-city-sub { font-size: 13px; color: #888; margin-bottom: 24px; }
+
+.r-cards { display: flex; flex-direction: column; gap: 14px; }
+.r-card {
+    background: #fff; border: 3px solid #000;
+    border-radius: 16px; box-shadow: 5px 5px 0 #000;
+    padding: 20px 22px;
+    display: grid; grid-template-columns: 1fr auto;
+    gap: 12px; align-items: start;
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+.r-card:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 #000; }
+.r-card-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px; font-weight: 800;
+    color: #aaa; letter-spacing: 2px;
+    text-transform: uppercase; margin-bottom: 4px;
+}
+.r-card-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px; font-weight: 800;
+    color: #000; margin-bottom: 4px; line-height: 1.1;
+}
+.r-card-addr { font-size: 12px; color: #999; margin-bottom: 10px; }
+.r-card-ambiance {
+    font-size: 13px; color: #333; font-style: italic;
+    margin-bottom: 8px; line-height: 1.5;
+}
+.r-card-why { font-size: 13px; color: #555; line-height: 1.6; }
+.r-card-right {
+    display: flex; flex-direction: column;
+    align-items: flex-end; gap: 7px; min-width: 90px;
+}
+.r-moment {
+    background: #000; color: #B8FF57;
+    font-size: 10px; font-weight: 700;
+    padding: 4px 10px; border-radius: 8px;
+    white-space: nowrap; letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+.r-note { font-size: 13px; font-weight: 700; color: #000; }
+.r-type-badge {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    padding: 4px 9px; border: 2px solid #000;
+    border-radius: 8px; background: #F5F0FF; color: #000;
+}
+
+div[data-testid="stRadio"] > label { display: none; }
+div[data-testid="stRadio"] > div {
+    display: flex; gap: 10px; flex-direction: row !important;
+}
+div[data-testid="stRadio"] > div > label {
+    background: #fff !important; border: 3px solid #000 !important;
+    border-radius: 10px !important; padding: 10px 18px !important;
+    font-weight: 700 !important; cursor: pointer !important;
+    box-shadow: 4px 4px 0 #000 !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+}
+div[data-testid="stTextInput"] input {
+    border: 3px solid #000 !important; border-radius: 10px !important;
+    box-shadow: 4px 4px 0 #000 !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 500 !important; padding: 12px 16px !important;
+    background: #fff !important;
+}
+div[data-testid="stTextInput"] input:focus {
+    box-shadow: 2px 2px 0 #000 !important;
+    transform: translate(2px, 2px) !important;
+}
+div[data-testid="stForm"] { border: none !important; padding: 0 !important; }
+
+button[kind="primary"], button[data-testid="baseButton-primary"] {
+    background: #B8FF57 !important; color: #000 !important;
+    border: 3px solid #000 !important; border-radius: 10px !important;
+    box-shadow: 5px 5px 0 #000 !important;
+    font-family: 'Syne', sans-serif !important;
+    font-weight: 800 !important; font-size: 15px !important;
+    padding: 12px 24px !important;
+    transition: transform 0.1s, box-shadow 0.1s !important;
+}
+button[kind="primary"]:hover, button[data-testid="baseButton-primary"]:hover {
+    box-shadow: 2px 2px 0 #000 !important;
+    transform: translate(3px, 3px) !important;
+    background: #B8FF57 !important; color: #000 !important;
+}
+
+.stSpinner > div { border-top-color: #7B5CF0 !important; }
+div[data-testid="stExpander"] {
+    border: 3px solid #000 !important; border-radius: 12px !important;
+    box-shadow: 4px 4px 0 #000 !important; background: #fff !important;
+    margin-bottom: 12px !important;
+}
+
+.stAlert { border: 3px solid #000 !important; border-radius: 10px !important; }
+</style>
+"""
+
+CHIP_COLORS = ["lime", "yellow", "pink", "blue", "", "lime", "yellow", "pink"]
 
 def is_grande_ville(city):
     return city.lower().strip() in GRANDES_VILLES
@@ -34,7 +261,6 @@ def get_spotify_client():
 def get_user_music_profile(sp):
     top_tracks = sp.current_user_top_tracks(limit=10, time_range="medium_term")
     top_artists = sp.current_user_top_artists(limit=5, time_range="medium_term")
-    
     tracks = [f"{t['name']} - {t['artists'][0]['name']}" for t in top_tracks['items']]
     artists = [a['name'] for a in top_artists['items']]
     genres = []
@@ -42,57 +268,45 @@ def get_user_music_profile(sp):
         if artist.get('genres'):
             genres.extend(artist['genres'][:2])
     genres = list(set(genres))[:8] if genres else ["variété", "pop"]
-    
     return {"tracks": tracks, "artists": artists, "genres": genres}
 
 def build_manual_profile(artists_input):
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-    
     prompt = f"""Tu es un expert en musique.
-
 L'utilisateur a listé ces artistes qu'il aime : {artists_input}
-
-Génère un profil musical structuré pour ces artistes.
-Réponds UNIQUEMENT en JSON valide :
+Génère un profil musical structuré. Réponds UNIQUEMENT en JSON valide :
 {{
   "artists": ["artiste 1", "artiste 2"],
   "genres": ["genre 1", "genre 2"],
-  "tracks": ["titre emblématique - artiste"]
+  "tracks": ["titre - artiste"]
 }}
-
-Pour les genres, déduis-les des artistes. Pour les tracks, cite 5 titres emblématiques de ces artistes."""
-
+Pour les genres, déduis-les des artistes. Pour les tracks, cite 5 titres emblématiques."""
     message = client.messages.create(
-        model="claude-opus-4-5",
-        max_tokens=500,
+        model="claude-opus-4-5", max_tokens=500,
         messages=[{"role": "user", "content": prompt}]
     )
-    
     response_text = message.content[0].text
     if "```json" in response_text:
         response_text = response_text.split("```json")[1].split("```")[0]
     elif "```" in response_text:
         response_text = response_text.split("```")[1].split("```")[0]
-    
     return json.loads(response_text.strip())
 
 def get_search_queries(profile, city, grande_ville):
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-
     if grande_ville:
         niche_instruction = f"""
 NIVEAU DE NOTORIÉTÉ VISÉ pour {city} :
 - Pas le top 20 TripAdvisor ni les monuments que tout touriste connaît
-- Vise les lieux que les habitants de {city} connaissent et fréquentent — connus des locaux, ignorés des touristes
-- Des adresses qu'un habitant dirait à un ami qui visite : "vas-y, c'est bien, c'est pas touristique"
-- Inclus le nom d'un quartier précis dans chaque requête pour éviter les résultats génériques"""
+- Vise les lieux que les habitants connaissent et fréquentent — connus des locaux, ignorés des touristes
+- Des adresses qu'un habitant dirait à un ami : "vas-y, c'est bien, c'est pas touristique"
+- Inclus le nom d'un quartier précis dans chaque requête"""
     else:
         niche_instruction = """
-- Varie les types de lieux : parcs, cinémas, librairies, marchés, cafés, bars, musées, espaces insolites
+- Varie les types : parcs, cinémas, librairies, marchés, cafés, bars, musées, espaces insolites
 - Cherche des adresses authentiques qui correspondent à la sensibilité de l'utilisateur"""
 
     prompt = f"""Tu es un critique culturel et un fin connaisseur des villes.
-
 Voici le profil musical d'un utilisateur :
 - Artistes favoris : {', '.join(profile['artists'])}
 - Genres : {', '.join(profile['genres'])}
@@ -100,48 +314,39 @@ Voici le profil musical d'un utilisateur :
 
 ÉTAPE 1 — Analyse esthétique profonde.
 Ne pense pas à la musique comme genre. Pense à ce qu'elle dit de la sensibilité de cette personne.
-Extrait 3 à 5 valeurs esthétiques précises. Exemples : mélancolie douce, beauté abîmée, décalage poétique, énergie brute et collective, douceur introspective, nostalgie urbaine, tension entre légèreté et profondeur.
+Extrait 3 à 5 valeurs esthétiques précises.
 
 ÉTAPE 2 — Génère 8 requêtes de recherche Google Places pour {city}.
 {niche_instruction}
-
-Sois radical dans la diversité des types :
-- Inclus : parcs, cimetières, cinémas de quartier, librairies, marchés, musées, architectures particulières, cafés, espaces insolites, jardins, passages couverts, quais, brocantes, bars
-- Chaque lieu doit pouvoir exister un mardi après-midi autant qu'un vendredi soir
+Sois radical dans la diversité : parcs, cimetières, cinémas, librairies, marchés, musées, cafés, espaces insolites, jardins, passages, quais, brocantes, bars.
 
 Réponds UNIQUEMENT en JSON valide :
 {{
   "valeurs_esthetiques": ["valeur 1", "valeur 2", "valeur 3"],
-  "analyse": "2-3 phrases qui décrivent la sensibilité de cette personne au-delà de ses genres musicaux",
+  "analyse": "2-3 phrases sur la sensibilité de cette personne",
   "requetes": [
     {{
       "query": "requête Google Places précise",
-      "type_lieu": "parc/cinéma/librairie/bar/café/musée/marché/etc",
+      "type_lieu": "parc/cinéma/librairie/bar/café/musée/etc",
       "vibe": "quelle valeur esthétique ce lieu incarne"
     }}
   ]
 }}"""
-
     message = client.messages.create(
-        model="claude-opus-4-5",
-        max_tokens=1200,
+        model="claude-opus-4-5", max_tokens=1200,
         messages=[{"role": "user", "content": prompt}]
     )
-    
     response_text = message.content[0].text
     if "```json" in response_text:
         response_text = response_text.split("```json")[1].split("```")[0]
     elif "```" in response_text:
         response_text = response_text.split("```")[1].split("```")[0]
-    
     return json.loads(response_text.strip())
 
 def search_real_places(queries, city):
     api_key = st.secrets["GOOGLE_PLACES_API_KEY"]
-    
     all_places = []
     seen_ids = set()
-    
     for item in queries['requetes']:
         try:
             url = "https://places.googleapis.com/v1/places:searchText"
@@ -150,16 +355,9 @@ def search_real_places(queries, city):
                 "X-Goog-Api-Key": api_key,
                 "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types"
             }
-            body = {
-                "textQuery": f"{item['query']} {city}",
-                "languageCode": "fr"
-            }
-            
+            body = {"textQuery": f"{item['query']} {city}", "languageCode": "fr"}
             response = requests.post(url, headers=headers, json=body)
             results = response.json()
-            
-            st.write(f"Requête : {item['query']} → {results}")
-            
             for place in results.get('places', [])[:2]:
                 place_id = place['id']
                 if place_id not in seen_ids:
@@ -173,32 +371,26 @@ def search_real_places(queries, city):
                         "vibe_recherche": item['vibe'],
                         "type_lieu": item['type_lieu']
                     })
-        except Exception as e:
-            st.write(f"Erreur : {e}")
+        except Exception:
             continue
-    
     return all_places
 
 def select_and_explain(profile, city, places, analyse, valeurs, grande_ville):
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-    
     places_text = json.dumps(places, ensure_ascii=False, indent=2)
-
     if grande_ville:
         niche_filter = f"""
 NIVEAU DE NOTORIÉTÉ :
-- Écarte les lieux qui font partie du top 20 touristique de {city}
+- Écarte les lieux du top 20 touristique de {city}
 - Garde des lieux que les habitants connaissent et apprécient
-- Le bon test : un habitant de {city} dirait "ah oui je connais, c'est bien"
-- Si tu as le choix entre deux lieux similaires, préfère le moins touristique"""
+- Test : un habitant dirait "ah oui je connais, c'est bien"
+- Si choix entre deux lieux similaires, préfère le moins touristique"""
     else:
         niche_filter = ""
-
     prompt = f"""Tu es un critique culturel qui écrit sur les villes.
-
 Sensibilité de l'utilisateur :
 - Artistes : {', '.join(profile['artists'])}
-- Valeurs esthétiques extraites : {', '.join(valeurs)}
+- Valeurs esthétiques : {', '.join(valeurs)}
 - Analyse : {analyse}
 
 Voici une liste de vrais lieux trouvés à {city} :
@@ -206,84 +398,145 @@ Voici une liste de vrais lieux trouvés à {city} :
 
 {niche_filter}
 
-Sélectionne 5 lieux parmi cette liste. Tu DOIS en sélectionner exactement 5, même si certains te semblent imparfaits — choisis les meilleurs disponibles.
-Varie absolument les types : ne sélectionne pas 3 bars. Mélange les registres — un lieu de jour, un lieu de nuit, un lieu silencieux, un lieu vivant.
-
-Parle du lieu comme un critique culturel, pas comme un guide touristique.
-Le lien avec la musique doit être indirect et poétique, pas littéral.
+Sélectionne exactement 5 lieux. Varie les types — un lieu de jour, un lieu de nuit, un silencieux, un vivant.
+Parle comme un critique culturel, pas un guide touristique.
+Le lien avec la musique doit être indirect et poétique.
 
 Réponds UNIQUEMENT en JSON valide :
 {{
   "lieux": [
     {{
-      "nom": "nom exact du lieu",
+      "nom": "nom exact",
       "adresse": "adresse exacte",
       "note": "note",
       "type_lieu": "type",
-      "moment": "matin/après-midi/soir/nuit — quand y aller",
-      "ambiance": "une phrase sèche et précise sur ce qu'on ressent là-bas",
-      "pourquoi": "lien poétique et indirect entre ce lieu et la sensibilité musicale, 2-3 phrases"
+      "moment": "matin/après-midi/soir/nuit",
+      "ambiance": "une phrase sèche et précise",
+      "pourquoi": "lien poétique et indirect, 2-3 phrases"
     }}
   ]
 }}"""
-
     message = client.messages.create(
-        model="claude-opus-4-5",
-        max_tokens=1500,
+        model="claude-opus-4-5", max_tokens=1500,
         messages=[{"role": "user", "content": prompt}]
     )
-    
     response_text = message.content[0].text
     if "```json" in response_text:
         response_text = response_text.split("```json")[1].split("```")[0]
     elif "```" in response_text:
         response_text = response_text.split("```")[1].split("```")[0]
-    
     return json.loads(response_text.strip())
 
-# Interface Streamlit
-st.set_page_config(page_title="Resonance", page_icon="🎵", layout="centered")
+def render_profile_card(profile, source="spotify"):
+    initial = profile['artists'][0][0].upper() if profile['artists'] else "?"
+    artists_str = " · ".join(profile['artists'][:3])
+    source_label = "via Spotify" if source == "spotify" else "saisie manuelle"
+    chips_html = ""
+    for i, genre in enumerate(profile['genres'][:5]):
+        color = CHIP_COLORS[i % len(CHIP_COLORS)]
+        chips_html += f'<div class="r-chip {color}">{genre}</div>'
+    st.markdown(f"""
+    <div class="r-profile-card">
+        <div class="r-profile-header">
+            <div class="r-avatar">{initial}</div>
+            <div>
+                <div class="r-profile-name">{artists_str}</div>
+                <div class="r-profile-sub">{source_label}</div>
+            </div>
+        </div>
+        <div class="r-genre-chips">{chips_html}</div>
+        <div class="r-artists"><strong>{" · ".join(profile['artists'])}</strong><br>
+        {" · ".join(profile['tracks'][:3]) if profile['tracks'] else ""}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.title("🎵 Resonance")
-st.subheader("Découvre des lieux qui résonnent avec ta sensibilité")
+def render_analyse(search_data):
+    valeurs_html = ""
+    for v in search_data['valeurs_esthetiques']:
+        valeurs_html += f'<div class="r-valeur">{v}</div>'
+    st.markdown(f"""
+    <div class="r-analyse-card">
+        <div class="r-analyse-text">{search_data['analyse']}</div>
+        <div class="r-valeurs">{valeurs_html}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def render_cards(result, city):
+    cards_html = ""
+    accent_colors = ["#7B5CF0", "#B8FF57", "#FFD166", "#FFB3DE", "#B3E5FF"]
+    for i, lieu in enumerate(result['lieux']):
+        color = accent_colors[i % len(accent_colors)]
+        note_html = f'<div class="r-note">⭐ {lieu["note"]}</div>' if lieu.get('note') and lieu['note'] != 'N/A' else ''
+        cards_html += f"""
+        <div class="r-card" style="border-left: 6px solid {color};">
+            <div>
+                <div class="r-card-num">0{i+1}</div>
+                <div class="r-card-name">{lieu['nom']}</div>
+                <div class="r-card-addr">📍 {lieu['adresse']}</div>
+                <div class="r-card-ambiance">{lieu['ambiance']}</div>
+                <div class="r-card-why">{lieu['pourquoi']}</div>
+            </div>
+            <div class="r-card-right">
+                <div class="r-moment">{lieu.get('moment', '')}</div>
+                {note_html}
+                <div class="r-type-badge">{lieu['type_lieu']}</div>
+            </div>
+        </div>"""
+    st.markdown(f"""
+    <div class="r-results-section">
+        <div class="r-section-title">Résultats</div>
+        <div class="r-city-header">{city.title()}</div>
+        <div class="r-city-sub">5 lieux sélectionnés pour ta sensibilité</div>
+        <div class="r-cards">{cards_html}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# APP
+st.set_page_config(page_title="Resonance", page_icon="🎵", layout="wide")
+st.markdown(CSS, unsafe_allow_html=True)
+
+st.markdown("""
+<nav class="r-nav">
+    <div class="r-logo">Re<span>so</span>nance</div>
+</nav>
+<div class="r-hero">
+    <div class="r-tag">✦ Lieux sur mesure</div>
+    <div class="r-headline">La ville selon<br>ta <em>sensibilité</em></div>
+    <p class="r-sub">Resonance analyse ta musique et trouve les lieux qui partagent la même énergie — pas les spots touristiques, les vrais.</p>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="r-form-section">', unsafe_allow_html=True)
+st.markdown('<div class="r-section-title">Comment explorer</div>', unsafe_allow_html=True)
 
 mode = st.radio(
-    "Comment tu veux qu'on construise ton profil ?",
-    ["🎧 Depuis mon Spotify", "✍️ Je donne mes artistes moi-même"],
+    "", ["🎧 Depuis mon Spotify", "✍️ Je donne mes artistes"],
     horizontal=True
 )
 
-city = st.text_input("Dans quelle ville tu veux explorer ?", placeholder="Paris, Lyon, Berlin...")
+city = st.text_input("", placeholder="Paris, Lyon, Berlin, Tokyo...")
 
-if mode == "✍️ Je donne mes artistes moi-même":
-    artists_input = st.text_input(
-        "Tes artistes préférés en ce moment",
-        placeholder="Beach House, Kanye West, Jul, Videoclub..."
-    )
-    
-    if st.button("Explorer", type="primary"):
+if mode == "✍️ Je donne mes artistes":
+    artists_input = st.text_input("", placeholder="Beach House, Kanye West, Jul, Videoclub...")
+    btn = st.button("Explorer →", type="primary")
+    if btn:
         if not city:
             st.warning("Entre une ville d'abord !")
         elif not artists_input:
             st.warning("Entre au moins un artiste !")
         else:
             try:
-                with st.spinner("Construction du profil musical..."):
+                with st.spinner("Construction du profil..."):
                     profile = build_manual_profile(artists_input)
-                    grande_ville = is_grande_ville(city)
                     st.session_state['profile'] = profile
-                    st.session_state['grande_ville'] = grande_ville
+                    st.session_state['grande_ville'] = is_grande_ville(city)
                     st.session_state['city'] = city
-
-                with st.expander("Ton profil musical"):
-                    st.write("**Artistes :**", ", ".join(profile['artists']))
-                    st.write("**Genres déduits :**", ", ".join(profile['genres']))
-
+                    st.session_state['source'] = 'manual'
             except Exception as e:
                 st.error(f"Erreur : {e}")
-
 else:
-    if st.button("Connecte Spotify et explore", type="primary"):
+    btn = st.button("Connecter Spotify →", type="primary")
+    if btn:
         if not city:
             st.warning("Entre une ville d'abord !")
         else:
@@ -291,66 +544,54 @@ else:
                 with st.spinner("Connexion à Spotify..."):
                     sp = get_spotify_client()
                     profile = get_user_music_profile(sp)
-                    grande_ville = is_grande_ville(city)
                     st.session_state['profile'] = profile
-                    st.session_state['grande_ville'] = grande_ville
+                    st.session_state['grande_ville'] = is_grande_ville(city)
                     st.session_state['city'] = city
-
-                with st.expander("Ton profil musical"):
-                    st.write("**Artistes :**", ", ".join(profile['artists']))
-                    st.write("**Genres :**", ", ".join(profile['genres']))
-
+                    st.session_state['source'] = 'spotify'
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
-# Pipeline commun
+st.markdown('</div>', unsafe_allow_html=True)
+
 if 'profile' in st.session_state and 'city' in st.session_state:
     profile = st.session_state['profile']
     grande_ville = st.session_state['grande_ville']
     city = st.session_state['city']
-    
+    source = st.session_state.get('source', 'spotify')
+
+    st.markdown('<div style="padding: 24px 32px 0;">', unsafe_allow_html=True)
+    st.markdown('<div class="r-section-title">Ton profil</div>', unsafe_allow_html=True)
+    render_profile_card(profile, source)
+
     try:
         with st.spinner("Analyse de ta sensibilité..."):
             search_data = get_search_queries(profile, city, grande_ville)
-        
-        with st.expander("Ta sensibilité esthétique"):
-            st.write(search_data['analyse'])
-            st.write("**Valeurs :**", " · ".join(search_data['valeurs_esthetiques']))
-        
+
+        st.markdown('<div class="r-section-title">Sensibilité esthétique</div>', unsafe_allow_html=True)
+        render_analyse(search_data)
+
         with st.spinner(f"Recherche de lieux à {city}..."):
             real_places = search_real_places(search_data, city)
-        
+
         if not real_places:
             st.error("Aucun lieu trouvé. Essaie une autre ville.")
         else:
-            with st.spinner("Sélection des lieux qui te correspondent..."):
+            with st.spinner("Sélection en cours..."):
                 result = select_and_explain(
                     profile, city, real_places,
                     search_data['analyse'],
                     search_data['valeurs_esthetiques'],
                     grande_ville
                 )
-            
-            st.markdown(f"## 📍 {city}")
-            
-            for lieu in result['lieux']:
-                with st.container():
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.markdown(f"### {lieu['nom']}")
-                    with col2:
-                        st.markdown(f"*{lieu.get('moment', '')}*")
-                    
-                    st.markdown(f"📍 {lieu['adresse']}")
-                    if lieu['note'] != 'N/A':
-                        st.markdown(f"⭐ {lieu['note']}")
-                    st.markdown(f"*{lieu['ambiance']}*")
-                    st.markdown(f"{lieu['pourquoi']}")
-                    st.divider()
-
-        del st.session_state['profile']
-        del st.session_state['grande_ville']
-        del st.session_state['city']
+            render_cards(result, city)
 
     except Exception as e:
         st.error(f"Erreur : {e}")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    del st.session_state['profile']
+    del st.session_state['grande_ville']
+    del st.session_state['city']
+    if 'source' in st.session_state:
+        del st.session_state['source']

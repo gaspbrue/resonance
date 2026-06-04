@@ -124,39 +124,6 @@ section[data-testid="stSidebar"] { display: none; }
 .r-valeur:nth-child(4) { background: #B3E5FF; }
 .r-valeur:nth-child(5) { background: #E0B3FF; }
 
-.r-progress {
-    display: flex; gap: 0;
-    margin-bottom: 32px;
-    border: 3px solid #000;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 4px 4px 0 #000;
-}
-.r-step {
-    flex: 1; padding: 14px 16px;
-    display: flex; align-items: center; gap: 10px;
-    background: #fff;
-    border-right: 3px solid #000;
-    font-size: 13px; font-weight: 600;
-    color: #aaa;
-    transition: background 0.3s;
-}
-.r-step:last-child { border-right: none; }
-.r-step.active { background: #F5F0FF; color: #000; }
-.r-step.done { background: #B8FF57; color: #000; }
-.r-step-num {
-    width: 26px; height: 26px;
-    border: 2px solid currentColor;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Syne', sans-serif;
-    font-size: 12px; font-weight: 800;
-    flex-shrink: 0;
-}
-.r-step.done .r-step-num {
-    background: #000; color: #B8FF57; border-color: #000;
-}
-
 .r-results-section { padding: 32px 32px 48px; }
 .r-city-header {
     font-family: 'Syne', sans-serif;
@@ -260,32 +227,6 @@ button[kind="primary"]:hover, button[data-testid="baseButton-primary"]:hover {
 """
 
 
-def render_progress(step):
-    steps = [
-        ("01", "Analyse musicale"),
-        ("02", "Recherche de lieux"),
-        ("03", "Sélection finale"),
-    ]
-    html = '<div class="r-progress">'
-    for i, (num, label) in enumerate(steps):
-        if i + 1 < step:
-            cls = "done"
-            num_display = "✓"
-        elif i + 1 == step:
-            cls = "active"
-            num_display = num
-        else:
-            cls = ""
-            num_display = num
-        html += f"""
-        <div class="r-step {cls}">
-            <div class="r-step-num">{num_display}</div>
-            <span>{label}</span>
-        </div>"""
-    html += '</div>'
-    return html
-
-
 def render_profile_card(profile, source="spotify"):
     initial = profile['artists'][0][0].upper() if profile['artists'] else "?"
     artists_str = " · ".join(profile['artists'][:3])
@@ -328,11 +269,13 @@ def render_analyse(search_data):
 def render_cards(result, city):
     accent_colors = ["#7B5CF0", "#B8FF57", "#FFD166", "#FFB3DE", "#B3E5FF"]
     cards_html = ""
+
     for i, lieu in enumerate(result['lieux']):
         color = accent_colors[i % len(accent_colors)]
         note_html = f'<div class="r-note">⭐ {lieu["note"]}</div>' if lieu.get('note') and lieu['note'] != 'N/A' else ''
         maps_query = requests.utils.quote(f"{lieu['nom']} {lieu['adresse']}")
         maps_url = f"https://www.google.com/maps/search/?api=1&query={maps_query}"
+
         cards_html += f"""
         <div class="r-card" style="border-left: 6px solid {color};">
             <div>
@@ -350,6 +293,7 @@ def render_cards(result, city):
                 <div class="r-type-badge">{lieu['type_lieu']}</div>
             </div>
         </div>"""
+
     st.markdown(f"""
     <div class="r-results-section">
         <div class="r-section-title">Résultats</div>
@@ -430,30 +374,23 @@ if 'profile' in st.session_state and 'city' in st.session_state:
     source = st.session_state.get('source', 'spotify')
 
     st.markdown('<div style="padding: 24px 32px 0;">', unsafe_allow_html=True)
+
     st.markdown('<div class="r-section-title">Ton profil</div>', unsafe_allow_html=True)
     render_profile_card(profile, source)
 
-    progress_placeholder = st.empty()
-
     try:
-        # Étape 1
-        progress_placeholder.markdown(render_progress(1), unsafe_allow_html=True)
         with st.spinner("Analyse de ta sensibilité..."):
             search_data = get_search_queries(profile, city, grande_ville)
 
         st.markdown('<div class="r-section-title">Sensibilité esthétique</div>', unsafe_allow_html=True)
         render_analyse(search_data)
 
-        # Étape 2
-        progress_placeholder.markdown(render_progress(2), unsafe_allow_html=True)
         with st.spinner(f"Recherche de lieux à {city}..."):
             real_places = search_real_places(search_data, city)
 
         if not real_places:
             st.error("Aucun lieu trouvé. Essaie une autre ville.")
         else:
-            # Étape 3
-            progress_placeholder.markdown(render_progress(3), unsafe_allow_html=True)
             with st.spinner("Sélection en cours..."):
                 result = select_and_explain(
                     profile, city, real_places,
@@ -461,9 +398,6 @@ if 'profile' in st.session_state and 'city' in st.session_state:
                     search_data['valeurs_esthetiques'],
                     grande_ville
                 )
-
-            # Tout terminé
-            progress_placeholder.markdown(render_progress(4), unsafe_allow_html=True)
             render_cards(result, city)
 
     except Exception as e:

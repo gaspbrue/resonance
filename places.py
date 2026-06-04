@@ -78,6 +78,71 @@ Réponds UNIQUEMENT en JSON valide :
     return json.loads(response_text.strip())
 
 
+def get_shared_queries(profile_a, profile_b, city, grande_ville):
+    """Analyse deux profils et génère des requêtes basées sur leur sensibilité commune."""
+    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+
+    if grande_ville:
+        niche_instruction = f"""
+NIVEAU DE NOTORIÉTÉ VISÉ pour {city} :
+- Pas le top 20 TripAdvisor ni les monuments que tout touriste connaît
+- Vise les lieux que les habitants connaissent et fréquentent
+- Inclus le nom d'un quartier précis dans chaque requête"""
+    else:
+        niche_instruction = """
+- Varie les types : parcs, cinémas, librairies, marchés, cafés, bars, musées, espaces insolites"""
+
+    prompt = f"""Tu es un critique culturel et un fin connaisseur des villes.
+
+Deux personnes veulent explorer une ville ensemble. Voici leurs profils musicaux :
+
+PROFIL A :
+- Artistes : {', '.join(profile_a['artists'])}
+- Genres : {', '.join(profile_a['genres'])}
+- Titres : {', '.join(profile_a['tracks'][:3])}
+
+PROFIL B :
+- Artistes : {', '.join(profile_b['artists'])}
+- Genres : {', '.join(profile_b['genres'])}
+- Titres : {', '.join(profile_b['tracks'][:3])}
+
+ÉTAPE 1 — Analyse de la sensibilité commune.
+Ne pense pas aux genres musicaux. Pense à ce que ces deux profils partagent en profondeur — leurs points de rencontre esthétiques, émotionnels, culturels.
+Extrait 3 à 5 valeurs esthétiques communes, même si les musiques semblent différentes en surface.
+Explique en 2-3 phrases ce territoire partagé.
+
+ÉTAPE 2 — Génère 8 requêtes Google Places pour {city} qui correspondent à cette sensibilité commune.
+{niche_instruction}
+Sois radical dans la diversité : parcs, cimetières, cinémas, librairies, marchés, musées, cafés, espaces insolites, jardins, passages, quais, brocantes, bars.
+
+Réponds UNIQUEMENT en JSON valide :
+{{
+  "valeurs_communes": ["valeur 1", "valeur 2", "valeur 3"],
+  "analyse_commune": "2-3 phrases sur ce que ces deux profils partagent en profondeur",
+  "requetes": [
+    {{
+      "query": "requête Google Places précise",
+      "type_lieu": "parc/cinéma/librairie/bar/café/musée/etc",
+      "vibe": "quelle valeur commune ce lieu incarne"
+    }}
+  ]
+}}"""
+
+    message = client.messages.create(
+        model="claude-opus-4-5",
+        max_tokens=1200,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    response_text = message.content[0].text
+    if "```json" in response_text:
+        response_text = response_text.split("```json")[1].split("```")[0]
+    elif "```" in response_text:
+        response_text = response_text.split("```")[1].split("```")[0]
+
+    return json.loads(response_text.strip())
+
+
 def search_real_places(queries, city):
     api_key = st.secrets["GOOGLE_PLACES_API_KEY"]
     all_places = []
@@ -156,6 +221,69 @@ Réponds UNIQUEMENT en JSON valide :
       "moment": "matin/après-midi/soir/nuit",
       "ambiance": "une phrase sèche et précise",
       "pourquoi": "lien poétique et indirect, 2-3 phrases"
+    }}
+  ]
+}}"""
+
+    message = client.messages.create(
+        model="claude-opus-4-5",
+        max_tokens=1500,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    response_text = message.content[0].text
+    if "```json" in response_text:
+        response_text = response_text.split("```json")[1].split("```")[0]
+    elif "```" in response_text:
+        response_text = response_text.split("```")[1].split("```")[0]
+
+    return json.loads(response_text.strip())
+
+
+def select_and_explain_duo(profile_a, profile_b, city, places, analyse_commune, valeurs_communes, grande_ville):
+    """Sélectionne les lieux pour deux profils en expliquant le lien avec les deux."""
+    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+    places_text = json.dumps(places, ensure_ascii=False, indent=2)
+
+    if grande_ville:
+        niche_filter = f"""
+NIVEAU DE NOTORIÉTÉ :
+- Écarte les lieux du top 20 touristique de {city}
+- Garde des lieux que les habitants connaissent et apprécient"""
+    else:
+        niche_filter = ""
+
+    prompt = f"""Tu es un critique culturel qui écrit sur les villes.
+
+Deux personnes explorent {city} ensemble. Voici leurs profils :
+
+PROFIL A : {', '.join(profile_a['artists'])}
+PROFIL B : {', '.join(profile_b['artists'])}
+
+Sensibilité commune :
+- Valeurs : {', '.join(valeurs_communes)}
+- Analyse : {analyse_commune}
+
+Voici une liste de vrais lieux trouvés à {city} :
+{places_text}
+
+{niche_filter}
+
+Sélectionne exactement 5 lieux. Varie les types — un lieu de jour, un lieu de nuit, un silencieux, un vivant.
+Pour chaque lieu, explique pourquoi il parle aux DEUX profils — trouve le point de rencontre.
+Parle comme un critique culturel, pas un guide touristique.
+
+Réponds UNIQUEMENT en JSON valide :
+{{
+  "lieux": [
+    {{
+      "nom": "nom exact",
+      "adresse": "adresse exacte",
+      "note": "note",
+      "type_lieu": "type",
+      "moment": "matin/après-midi/soir/nuit",
+      "ambiance": "une phrase sèche et précise",
+      "pourquoi": "pourquoi ce lieu parle aux deux profils, 2-3 phrases"
     }}
   ]
 }}"""

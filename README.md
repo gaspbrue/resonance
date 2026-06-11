@@ -46,6 +46,17 @@ REDIRECT_URI = "http://127.0.0.1:8501"
 
 ---
 
+
+## Docker
+
+Run the app with Docker:
+
+docker pull gaspardbrue/resonance
+
+
+---
+
+
 ## Key technical decisions
 
 **Spotify OAuth** uses the Authorization Code flow to access the user's real listening history (top artists, genres, recent tracks) without storing any credentials.
